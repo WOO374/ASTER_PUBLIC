@@ -1,0 +1,61 @@
+name: Update Google News JSON
+
+on:
+  schedule:
+    # ⏰ UTC 기준: 0/6/12/18시 → KST(UTC+9)로 09:00/15:00/21:00/03:00
+    - cron: "0 0,6,12,18 * * *"
+  # 수동 실행 버튼(필수 아님): Actions 탭에서 Run workflow 가능
+  workflow_dispatch: {}
+
+permissions:
+  # Actions가 리포에 커밋/푸시할 수 있도록
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # (선택) 동시에 여러 인스턴스가 겹치지 않게
+    concurrency:
+      group: google-news-refresh
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 기본은 현재 브랜치(보통 main)
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Crawl Google News
+        env:
+          # ✅ 기본 키워드 세트 (원하면 이 줄만 수정)
+          QUERIES_JSON: '["생성형 AI","RAG","파인튜닝","멀티모달","오픈소스 LLM"]'
+        run: python google_news_rss.py
+
+      - name: Build JSON
+        run: python to_json.py
+
+      - name: Commit & Push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/google_news_latest.json outputs/*.csv || true
+          git commit -m "auto: refresh news JSON" || echo "no changes"
+          git push
