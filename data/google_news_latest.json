@@ -1,0 +1,10 @@
+[
+  {
+    "query": "RAG",
+    "title": "샘플: RAG 관련 최신 기사",
+    "summary_1line": "테스트 데이터입니다.",
+    "link": "https://example.com",
+    "published_kst": "2025-09-07 12:34:56",
+    "source": "Sample Press"
+  }
+]

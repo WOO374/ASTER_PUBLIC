@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI 뉴스 대시보드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.3/dist/style.css">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    header { margin-bottom: 16px; }
+    .toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .badge { padding:2px 8px; background:#f2f4f7; border-radius:999px; font-size:12px; }
+    .muted { color:#667085; font-size:14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI 뉴스 대시보드</h1>
+    <div class="muted">Asia/Seoul 기준 최신순 • Google News RSS 기반</div>
+    <div class="toolbar" style="margin-top:8px;">
+      <input id="search" placeholder="검색(제목/요약/매체/키워드)" style="padding:8px 10px;min-width:260px;">
+      <select id="queryFilter" style="padding:8px 10px;">
+        <option value="">모든 키워드</option>
+      </select>
+      <span class="badge" id="countBadge">0건</span>
+    </div>
+  </header>
+
+  <table id="newsTable"></table>
+
+  <script src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.3"></script>
+  <script>
+    const src = "data/google_news_latest.json";
+
+    fetch(src).then(r => r.json()).then(rows => {
+      rows.forEach(r => r.published_iso = r.published_kst || "");
+      const qSet = [...new Set(rows.map(r => r.query).filter(Boolean))].sort();
+      const qSel = document.getElementById("queryFilter");
+      qSet.forEach(q => { const opt=document.createElement("option"); opt.value=q; opt.textContent=q; qSel.appendChild(opt); });
+
+      const table = new simpleDatatables.DataTable("#newsTable", {
+        searchable: true, fixedHeight: true, perPage: 25,
+        data: {
+          headings: ["키워드","제목","요약","매체","발행(KST)"],
+          data: rows.map(r => ([
+            r.query || "",
+            `<a href="${r.link}" target="_blank" rel="noopener">${escapeHtml(r.title || "")}</a>`,
+            escapeHtml(r.summary_1line || ""),
+            escapeHtml(r.source || ""),
+            escapeHtml(r.published_kst || "")
+          ]))
+        }
+      });
+
+      document.getElementById("search").addEventListener("input", e => table.search(e.target.value));
+      qSel.addEventListener("change", () => table.columns().search(qSel.value ? [[0, qSel.value]] : []));
+      updateCount();
+      table.on("datatable.search", updateCount);
+      table.on("datatable.page", updateCount);
+      table.on("datatable.perpage", updateCount);
+
+      function updateCount(){ document.getElementById("countBadge").textContent = `${table.data.length}건`; }
+    });
+
+    function escapeHtml(s){return (s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+  </script>
+</body>
+</html>
